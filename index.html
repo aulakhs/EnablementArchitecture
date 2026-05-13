@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enablement Hub — System Architecture</title>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #eff6fc; --ink: #0A1F44; --ink2: #3E4B66; --ink3: #7e8aa3;
+  --surface: #ffffff; --border: #D8E6F4; --blue: #032D60; --blue-mid: #0176D3;
+  --blue-light: #e3f1fc; --green: #2a6b5e; --green-dim: #d9e9e6;
+  --amber: #b06000; --amber-dim: #fef3d0; --red: #c4411a; --red-dim: #fde8df;
+  --purple: #5a3e9e; --purple-dim: #ede7f6; --highlight: #FFB75D; --sage: #4a8a80;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+
+/* Sky */
+.sky{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
+.cloud{position:absolute;background:radial-gradient(ellipse at center,rgba(255,255,255,0.85) 0%,rgba(255,255,255,0.4) 45%,rgba(255,255,255,0) 70%);border-radius:50%;filter:blur(10px);will-change:transform}
+.c1{width:600px;height:200px;top:5%;left:-10%;animation:drift 90s linear infinite}
+.c2{width:450px;height:160px;top:40%;left:-20%;animation:drift 110s linear infinite;animation-delay:-35s}
+.c3{width:700px;height:230px;top:70%;left:-15%;animation:drift 130s linear infinite;animation-delay:-70s}
+@keyframes drift{0%{transform:translate3d(0,0,0)}100%{transform:translate3d(150vw,0,0)}}
+@media(prefers-reduced-motion:reduce){.cloud{animation:none!important}}
+
+/* Topbar */
+.topbar{position:sticky;top:0;z-index:100;background:rgba(3,45,96,0.95);backdrop-filter:blur(12px);padding:12px 28px;display:flex;align-items:center;gap:16px;border-bottom:1px solid rgba(255,255,255,0.08)}
+.topbar h1{font-family:'Newsreader',Georgia,serif;font-size:18px;color:#fff;font-weight:700}
+.topbar .badge{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--highlight);background:rgba(255,187,93,0.15);padding:3px 10px;border-radius:4px}
+.topbar .hint{font-size:11px;color:rgba(255,255,255,0.5);margin-left:auto}
+
+/* Graph section */
+.graph-section{position:relative;height:85vh;min-height:600px;z-index:1;overflow:hidden}
+#graph{width:100%;height:100%}
+
+/* Detail panel (side drawer) */
+.detail-panel{position:fixed;top:48px;right:0;width:420px;bottom:0;background:rgba(255,255,255,0.97);backdrop-filter:blur(16px);border-left:1px solid var(--border);box-shadow:-8px 0 30px rgba(3,45,96,0.08);z-index:50;padding:24px;overflow-y:auto;transform:translateX(100%);transition:transform .3s cubic-bezier(0.4,0,0.2,1)}
+.detail-panel.open{transform:translateX(0)}
+.dp-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:20px;color:var(--ink3);cursor:pointer;width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center}
+.dp-close:hover{background:var(--border);color:var(--ink)}
+.dp-icon{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;margin-bottom:14px}
+.dp-name{font-family:'Newsreader',Georgia,serif;font-size:24px;font-weight:700;margin-bottom:4px}
+.dp-type{font-size:11px;font-weight:600;padding:3px 10px;border-radius:5px;display:inline-block;margin-bottom:14px}
+.dp-desc{font-size:13px;color:var(--ink2);line-height:1.7;margin-bottom:18px}
+.dp-section{margin-bottom:18px}
+.dp-section h4{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--ink3);margin-bottom:8px}
+.dp-chips{display:flex;flex-wrap:wrap;gap:5px}
+.dp-chip{font-size:11px;padding:4px 10px;border-radius:6px;font-weight:500}
+.dp-chip.in{background:#e3f1fc;color:#0a4f99}
+.dp-chip.out{background:#d9e9e6;color:var(--green)}
+.dp-chip.tool{background:#ede7f6;color:var(--purple)}
+.dp-detail{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--ink2);padding:5px 0;line-height:1.65}
+.dp-detail::before{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--blue-mid);margin-top:7px;flex-shrink:0}
+.dp-skills-label{font-size:11px;font-weight:600;color:var(--ink3);margin-top:16px;margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em}
+.dp-skill-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;margin-bottom:4px;background:#f4f9fd;border:1px solid var(--border);font-size:12px}
+.dp-skill-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dp-skill-name{font-weight:600;color:var(--ink)}
+.dp-skill-desc{font-size:11px;color:var(--ink3);margin-left:auto}
+.dp-shared-badge{font-size:9px;font-weight:700;padding:1px 6px;border-radius:3px;background:var(--amber-dim);color:var(--amber);margin-left:4px}
+
+/* Tooltip */
+.tooltip{position:fixed;z-index:200;pointer-events:none;background:rgba(10,31,68,0.92);color:#fff;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:500;opacity:0;transition:opacity .15s;max-width:260px}
+.tooltip.show{opacity:1}
+
+/* Legend */
+.legend{position:absolute;bottom:20px;left:20px;z-index:50;background:rgba(255,255,255,0.92);backdrop-filter:blur(10px);border:1px solid var(--border);border-radius:12px;padding:14px 18px;font-size:11px;color:var(--ink2);box-shadow:0 4px 16px rgba(3,45,96,0.08)}
+.legend h4{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--ink3);margin-bottom:8px}
+.leg-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.leg-circle{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.leg-shared{width:12px;height:12px;border-radius:50%;flex-shrink:0;border:2px solid var(--amber);background:#fef3d0}
+.leg-line{width:24px;height:2px;flex-shrink:0;border-radius:1px}
+
+/* ===== TABS & DETAIL SECTIONS BELOW GRAPH ===== */
+.below-graph{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:30px 40px 80px}
+.phase-nav{display:flex;gap:4px;justify-content:center;margin-bottom:30px;flex-wrap:wrap}
+.phase-tab{padding:8px 18px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface);color:var(--ink3);transition:all .15s}
+.phase-tab:hover{border-color:var(--blue-mid);color:var(--blue-mid)}
+.phase-tab.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.phase-tab .ph-num{display:inline-block;width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,0.2);text-align:center;line-height:18px;font-size:10px;margin-right:4px}
+.phase-tab.active .ph-num{background:rgba(255,255,255,0.3)}
+.phase-section{display:none;margin-bottom:40px}
+.phase-section.active{display:block}
+.phase-header{display:flex;align-items:center;gap:14px;margin-bottom:20px}
+.phase-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;flex-shrink:0}
+.phase-header h2{font-family:'Newsreader',Georgia,serif;font-size:26px;font-weight:700}
+.phase-header p{font-size:13px;color:var(--ink3);margin-top:2px}
+.agents-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+.agent-card{background:linear-gradient(180deg,#ffffff,#f7fafd);border:1px solid var(--border);border-radius:14px;padding:20px 22px;box-shadow:0 4px 16px rgba(3,45,96,0.06);transition:transform .15s,box-shadow .15s}
+.agent-card:hover{transform:translateY(-3px);box-shadow:0 8px 28px rgba(3,45,96,0.12)}
+.agent-card.full{grid-column:1/-1}
+.ac-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.ac-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;flex-shrink:0}
+.ac-name{font-size:15px;font-weight:700;color:var(--ink)}
+.ac-type{font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px;margin-left:auto}
+.ac-type.agent{background:var(--blue-light);color:var(--blue-mid)}
+.ac-type.skill{background:var(--green-dim);color:var(--green)}
+.ac-type.scheduled{background:var(--amber-dim);color:var(--amber)}
+.ac-desc{font-size:12.5px;color:var(--ink2);line-height:1.7;margin-bottom:12px}
+.ac-flows{display:flex;gap:20px}
+.ac-flow{flex:1}
+.ac-flow-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);margin-bottom:6px}
+.ac-flow-items{display:flex;flex-wrap:wrap;gap:4px}
+.ac-chip{font-size:11px;padding:3px 9px;border-radius:5px;font-weight:500}
+.ac-chip.in{background:var(--blue-light);color:#0a4f99}
+.ac-chip.out{background:var(--green-dim);color:var(--green)}
+.ac-detail{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--ink2);padding:4px 0;line-height:1.6}
+.ac-detail::before{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--blue-mid);margin-top:7px;flex-shrink:0}
+.ac-details{margin-top:10px}
+.sched-table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:20px 0}
+.sched-table th{background:linear-gradient(180deg,#e7f1fb,#d8eaf8);padding:10px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);text-align:left}
+.sched-table td{background:var(--surface);padding:10px 14px;font-size:12px;color:var(--ink2);border-top:1px solid var(--border)}
+.sched-table tr:hover td{background:#f4f9fd}
+.sched-freq{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:4px}
+.sched-freq.daily{background:var(--red-dim);color:var(--red)}
+.sched-freq.weekly{background:var(--amber-dim);color:var(--amber)}
+.sched-freq.trigger{background:var(--blue-light);color:var(--blue-mid)}
+.sched-freq.cont{background:var(--green-dim);color:var(--green)}
+.pri-table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;margin:20px 0}
+.pri-table th{background:linear-gradient(180deg,#e7f1fb,#d8eaf8);padding:10px 14px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--ink3);text-align:left}
+.pri-table td{background:var(--surface);padding:10px 14px;font-size:12px;color:var(--ink2);border-top:1px solid var(--border)}
+.pri-num{display:inline-flex;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff}
+.tools-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:16px 0}
+.tool-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px}
+.tool-card h5{font-size:11px;font-weight:700;color:var(--ink);margin-bottom:3px}
+.tool-card p{font-size:10px;color:var(--ink3);line-height:1.5}
+.tool-card .tc-mcp{font-size:9px;font-family:'SF Mono',monospace;color:var(--purple);margin-top:4px;word-break:break-all}
+.footer{text-align:center;font-size:11px;color:var(--ink3);margin-top:60px;padding-top:20px;border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+
+<div class="sky"><div class="cloud c1"></div><div class="cloud c2"></div><div class="cloud c3"></div></div>
+
+<div class="topbar">
+  <h1>Enablement Hub Pipeline</h1>
+  <span class="badge">Architecture</span>
+  <span class="hint">Click agents to expand skills &middot; Drag to reposition &middot; Shared skills glow amber</span>
+</div>
+
+<!-- ============ D3 INTERACTIVE GRAPH ============ -->
+<div class="graph-section">
+  <svg id="graph"></svg>
+  <div class="legend">
+    <h4>Legend</h4>
+    <div class="leg-row"><div class="leg-circle" style="background:linear-gradient(135deg,#FFB75D,#f59e0b)"></div> Hub (Orchestrator)</div>
+    <div class="leg-row"><div class="leg-circle" style="background:linear-gradient(135deg,#0176D3,#60a5fa)"></div> Agent</div>
+    <div class="leg-row"><div class="leg-circle" style="background:linear-gradient(135deg,#4a8a80,#6ec6b8);width:9px;height:9px"></div> Skill (exclusive)</div>
+    <div class="leg-row"><div class="leg-shared"></div> Skill (shared across agents)</div>
+    <div class="leg-row"><div class="leg-line" style="background:#D8E6F4"></div> Hub &#8594; Agent</div>
+    <div class="leg-row"><div class="leg-line" style="background:#4a8a80"></div> Agent &#8594; Skill</div>
+    <div class="leg-row"><div class="leg-line" style="background:var(--amber)"></div> Shared skill link</div>
+    <div class="leg-row"><div style="width:24px;border-top:2px dashed var(--highlight)"></div> Agent &#8594; Agent flow</div>
+  </div>
+</div>
+
+<!-- Detail panel (side drawer) -->
+<div class="detail-panel" id="detailPanel">
+  <button class="dp-close" onclick="closePanel()">&times;</button>
+  <div id="detailContent"></div>
+</div>
+<div class="tooltip" id="tooltip"></div>
+
+<!-- ============ DETAILED PHASE TABS ============ -->
+<div class="below-graph">
+  <div style="text-align:center;margin-bottom:30px">
+    <h2 style="font-family:'Newsreader',Georgia,serif;font-size:28px;font-weight:700">Phase Details</h2>
+    <p style="font-size:13px;color:var(--ink3);margin-top:4px">Click a tab to explore each phase in depth</p>
+  </div>
+
+  <div class="phase-nav">
+    <div class="phase-tab active" onclick="showPhase('agents')">Agent Inventory</div>
+    <div class="phase-tab" onclick="showPhase('intake')"><span class="ph-num">0</span> Intake</div>
+    <div class="phase-tab" onclick="showPhase('research')"><span class="ph-num">1</span> Research</div>
+    <div class="phase-tab" onclick="showPhase('assembly')"><span class="ph-num">2</span> Assembly</div>
+    <div class="phase-tab" onclick="showPhase('testing')"><span class="ph-num">3</span> Testing</div>
+    <div class="phase-tab" onclick="showPhase('deploy')"><span class="ph-num">4</span> Deploy</div>
+    <div class="phase-tab" onclick="showPhase('faq')"><span class="ph-num">5</span> FAQ</div>
+    <div class="phase-tab" onclick="showPhase('pdf')"><span class="ph-num">6</span> PDF</div>
+    <div class="phase-tab" onclick="showPhase('maintain')"><span class="ph-num">7</span> Maintain</div>
+    <div class="phase-tab" onclick="showPhase('tools')">MCP Tools</div>
+    <div class="phase-tab" onclick="showPhase('priority')">Build Order</div>
+  </div>
+
+  <!-- AGENT INVENTORY -->
+  <div class="phase-section active" id="sec-agents">
+    <table class="sched-table">
+      <thead><tr><th>Agent / Skill</th><th>Type</th><th>Phase</th><th>Trigger</th><th>Skills</th><th>Shared Skills</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Intake Agent</strong></td><td><span class="sched-freq trigger">On-demand</span></td><td>Phase 0</td><td>CLI /intake · /article · Maintenance</td><td>3</td><td>0</td></tr>
+        <tr><td><strong>Research Agent</strong></td><td><span class="sched-freq trigger">On-demand</span></td><td>Phase 1</td><td>Topic approved</td><td>6</td><td>3 (Slack Miner, Drive Scanner, SF Querier)</td></tr>
+        <tr><td><strong>Assembly Agent</strong></td><td><span class="sched-freq trigger">Post-approval</span></td><td>Phase 2</td><td>Research approved</td><td>4</td><td>1 (Diagram Harvester)</td></tr>
+        <tr><td><strong>Testing Agent</strong></td><td><span class="sched-freq daily">2-3x/week</span></td><td>Phase 3</td><td>Post-build + scheduled</td><td>5</td><td>2 (Link Checker, Internal URL Scanner)</td></tr>
+        <tr><td><strong>Deploy Skill</strong></td><td><span class="sched-freq cont">Skill</span></td><td>Phase 4</td><td>Tests pass</td><td>3</td><td>1 (Hub Wiring)</td></tr>
+        <tr><td><strong>FAQ Agent</strong></td><td><span class="sched-freq daily">Daily</span></td><td>Phase 5</td><td>Scheduled + post-deploy</td><td>3</td><td>1 (Slack Miner)</td></tr>
+        <tr><td><strong>PDF Agent</strong></td><td><span class="sched-freq trigger">AE download</span></td><td>Phase 6</td><td>AE clicks download</td><td>4</td><td>2 (Link Scrubber, Diagram Harvester)</td></tr>
+        <tr><td><strong>Maintenance Agent</strong></td><td><span class="sched-freq weekly">Weekly</span></td><td>Phase 7</td><td>Monday 9 AM</td><td>4</td><td>1 (Hub Integrity → Testing)</td></tr>
+        <tr><td><strong>Notification Agent</strong></td><td><span class="sched-freq cont">Always-on</span></td><td>Cross-cut</td><td>Any agent completes</td><td>2</td><td>0</td></tr>
+      </tbody>
+    </table>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 22px;margin-top:16px;font-size:12px;color:var(--ink2);line-height:2.2">
+      <strong style="font-size:13px;color:var(--ink)">Data flow (end-to-end):</strong><br>
+      <strong>Topic Submission</strong> &#8594; Intake Agent &#8594; <em>dedup + classify</em> &#8594; <strong>Topic Queue</strong><br>
+      <strong>Queue</strong> &#8594; Research Agent &#8594; <em>Slack + Drive + SF + Web</em> &#8594; <strong>Research Report</strong><br>
+      <strong>Report</strong> &#8594; <span style="color:var(--red);font-weight:600">USER REVIEW</span> &#8594; Assembly Agent &#8594; <strong>Field Guide App</strong><br>
+      <strong>App</strong> &#8594; Testing Agent &#8594; <em>links + facts + diagrams</em> &#8594; <strong>Test Report</strong><br>
+      <strong>Pass</strong> &#8594; Deploy Skill &#8594; <em>Heroku + Hub wiring</em> &#8594; <strong style="color:var(--green)">LIVE</strong><br>
+      <strong>Fail</strong> &#8594; <span style="color:var(--red)">&#8634; back to Assembly</span><br>
+      <div style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px">
+        <strong>Post-deploy:</strong> FAQ Agent (daily) &middot; PDF Agent (on-demand) &middot; Maintenance Agent (weekly) &middot; Notifications (continuous)
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASE DETAIL SECTIONS -->
+  <div class="phase-section" id="sec-intake">
+    <div class="phase-header"><div class="phase-icon" style="background:linear-gradient(135deg,#7e8aa3,#5a6b82)">0</div><div><h2>Phase 0 — Intake & Triage</h2><p>Accept, classify, deduplicate, and prioritize topic submissions</p></div></div>
+    <div class="agents-grid"><div class="agent-card full">
+      <div class="ac-header"><div class="ac-icon" style="background:linear-gradient(135deg,#7e8aa3,#5a6b82)">&#9993;</div><div class="ac-name">Intake Agent</div><span class="ac-type agent">Agent</span></div>
+      <div class="ac-desc">Receives topic submissions from multiple entry points. Checks against existing topic registry to prevent duplicates. Classifies topic type. Assigns priority based on Slack discussion volume, deal attachment, and leadership asks.</div>
+      <div class="ac-flows"><div class="ac-flow"><div class="ac-flow-label">Inputs</div><div class="ac-flow-items"><span class="ac-chip in">Slack command</span><span class="ac-chip in">CLI /intake</span><span class="ac-chip in">CLI /article</span><span class="ac-chip in">Maintenance triggers</span></div></div><div class="ac-flow"><div class="ac-flow-label">Outputs</div><div class="ac-flow-items"><span class="ac-chip out">Topic Queue entry</span><span class="ac-chip out">Priority score</span><span class="ac-chip out">Duplicate flag</span></div></div></div>
+      <div class="ac-details"><div class="ac-detail">Checks EnablementHub/index.html for existing topics (live + planned)</div><div class="ac-detail">Searches Slack for volume of discussion to gauge demand</div><div class="ac-detail">Classifies: New Topic, Update Existing, or Out of Scope</div><div class="ac-detail">Writes topic entry to topics-queue.json with metadata</div></div>
+    </div></div>
+  </div>
+
+  <div class="phase-section" id="sec-research">
+    <div class="phase-header"><div class="phase-icon" style="background:linear-gradient(135deg,#0176D3,#60a5fa)">1</div><div><h2>Phase 1 — Research</h2><p>Deep parallel research across all internal and external sources</p></div></div>
+    <div class="agents-grid"><div class="agent-card full">
+      <div class="ac-header"><div class="ac-icon" style="background:linear-gradient(135deg,#0176D3,#60a5fa)">&#128269;</div><div class="ac-name">Research Agent</div><span class="ac-type agent">Agent</span></div>
+      <div class="ac-desc">Highest-leverage agent. Runs parallel searches across Slack, Google Drive, Salesforce, and public web. Ranks sources by authority (BRD > Canvas > Slides > Thread > Blog > Web). Identifies SMEs. Produces structured research report with gap analysis.</div>
+      <div class="ac-flows"><div class="ac-flow"><div class="ac-flow-label">Data Sources</div><div class="ac-flow-items"><span class="ac-chip in">Slack canvases</span><span class="ac-chip in">Slack threads</span><span class="ac-chip in">Google Docs</span><span class="ac-chip in">Google Slides</span><span class="ac-chip in">Google Sheets</span><span class="ac-chip in">Salesforce SOQL</span><span class="ac-chip in">Public web</span></div></div><div class="ac-flow"><div class="ac-flow-label">Outputs</div><div class="ac-flow-items"><span class="ac-chip out">Research Report</span><span class="ac-chip out">Source Ranking</span><span class="ac-chip out">SME Contacts</span><span class="ac-chip out">Gap Analysis</span><span class="ac-chip out">Competitive Intel</span></div></div></div>
+      <div class="ac-details"><div class="ac-detail"><strong>Slack:</strong> canvases (type:canvases), threads, files — reads top canvases in full</div><div class="ac-detail"><strong>Google Drive:</strong> BRDs, architecture docs, diagram inventory from slides</div><div class="ac-detail"><strong>Salesforce:</strong> opportunities, product records, customer references</div><div class="ac-detail"><strong>Web:</strong> official docs, Trailhead, release notes, competitor positioning</div><div class="ac-detail"><strong>SME identification:</strong> who wrote the most content? That's the validation contact</div><div class="ac-detail"><strong>Gap report:</strong> topics discussed in Slack with no official docs</div></div>
+    </div></div>
+    <div style="background:var(--amber-dim);border:1px solid #fbbf24;border-radius:10px;padding:14px 18px;font-size:12px;color:var(--amber)"><strong>Human checkpoint:</strong> After research, the agent presents findings. User reviews and approves before assembly begins.</div>
+  </div>
+
+  <div class="phase-section" id="sec-assembly">
+    <div class="phase-header"><div class="phase-icon" style="background:linear-gradient(135deg,#5a3e9e,#8b6fc0)">2</div><div><h2>Phase 2 — Content Assembly</h2><p>Transform research into a production-quality field guide</p></div></div>
+    <div class="agents-grid">
+      <div class="agent-card"><div class="ac-header"><div class="ac-icon" style="background:linear-gradient(135deg,#5a3e9e,#8b6fc0)">&#9998;</div><div class="ac-name">Assembly Agent</div><span class="ac-type agent">Agent</span></div><div class="ac-desc">Writes the field guide. Uses research report as input. Selects structure based on topic type. Each topic gets unique layout.</div><div class="ac-details"><div class="ac-detail">Reads AgentFabric/index.html as style reference</div><div class="ac-detail">Selects tab structure (4 tabs standard)</div><div class="ac-detail">Writes copy: one-liner, pitch cards, compare splits, proof points</div><div class="ac-detail">No two guides share the same section arrangement</div><div class="ac-detail">Embeds diagrams from Diagram Harvester skill (shared with PDF Agent)</div></div></div>
+      <div class="agent-card"><div class="ac-header"><div class="ac-icon" style="background:linear-gradient(135deg,#5a3e9e,#8b6fc0)">&#128444;</div><div class="ac-name">Diagram Harvester</div><span class="ac-type skill">Shared Skill</span></div><div class="ac-desc">Extracts visual assets from Google Slides, Canvases, and Docs. Used by Assembly Agent and PDF Agent.</div><div class="ac-details"><div class="ac-detail">Gets slide thumbnails via get_page_thumbnail</div><div class="ac-detail">Converts canvas diagrams to inline SVG/HTML</div><div class="ac-detail">Stores source reference for freshness checks</div></div></div>
+    </div>
+  </div>
+
+  <div class="phase-section" id="sec-testing">
+    <div class="phase-header"><div class="phase-icon" style="background:linear-gradient(135deg,#c4411a,#f87171)">3</div><div><h2>Phase 3 — Testing & Validation</h2><p>Automated quality gate — post-build and 2-3x/week schedule</p></div></div>
+    <div class="agents-grid"><div class="agent-card full"><div class="ac-header"><div class="ac-icon" style="background:linear-gradient(135deg,#c4411a,#f87171)">&#10003;</div><div class="ac-name">Testing Agent</div><span class="ac-type scheduled">Scheduled 2-3x/week</span></div>
+      <div class="ac-desc">Quality guardian. Runs post-build and on schedule across all deployed topics. Failures block deployment; warnings are logged.</div>
+      <div class="ac-details"><div class="ac-detail"><strong>Link validation:</strong> HTTP check every href — 404s, 5xx, redirects</div><div class="ac-detail"><strong>Internal URL scan:</strong> regex for slack.com, org62, *.sfdc.net (shared with PDF Agent)</div><div class="ac-detail"><strong>Fact checking:</strong> cross-reference with help.salesforce.com</div><div class="ac-detail"><strong>Diagram freshness:</strong> source slides modified since embed?</div><div class="ac-detail"><strong>Content completeness:</strong> one-liner, tabs, FAQ, proof points required</div><div class="ac-detail"><strong>Hub consistency:</strong> sidebar links match deployed URLs</div><div class="ac-detail"><strong>Diff reporting:</strong> what changed vs. last run on scheduled checks</div></div>
+    </div></div>
+  </div>
+
+  <div class="phase-section" id="sec-deploy">
+    <div class="phase-header"><div class="phase-icon" style="background:linear-gradient(135deg,#032D60,#0a4f99)">4</div><div><h2>Phase 4 — Deployment</h2><p>Push to Heroku, wire into Hub, verify end-to-end</p></div></div>
+    <div class="agents-grid"><div class="agent-card full"><div class="ac-header"><div class="ac-icon" style="background:linear-gradient(135deg,#032D60,#0a4f99)">&#128640;</div><div class="ac-name">Deploy Skill</div><span class="ac-type skill">Skill</span></div>
+      <div class="ac-desc">Discrete deployment operation. Git init, Heroku create, push, verify HTTP 200, wire into Hub. Supports rollback.</div>
+      <div class="ac-details"><div class="ac-detail">git init + commit all files</div><div class="ac-detail">heroku create sf-{topic-slug}</div><div class="ac-detail">Push and wait for build</div><div class="ac-detail">Verify HTTP 200 on deployed URL</div><div class="ac-detail">Update EnablementHub sidebar, card, count, changelog (Hub Wiring — shared with Maintenance Agent)</div><div class="ac-detail">Rollback on failure or post-deploy test issues</div></div>
+    </div></div>
+  </div>
+
+  <div class="phase-section" id="sec-faq">
+    <div class="phase-header"><div class="phase-icon" style="background:linear-gradient(135deg,#b06000,#fbbf24)">5</div><div><h2>Phase 5 — FAQ Maintenance</h2><p>Continuously mine Slack for new questions and keep FAQs fresh</p></div></div>
+    <div class="agents-grid"><div class="agent-card full"><div class="ac-header"><div class="ac-icon" style="background:linear-gradient(135deg,#b06000,#fbbf24)">&#63;</div><div class="ac-name">FAQ Agent</div><span class="ac-type scheduled">Daily</span></div>
+      <div class="ac-desc">Searches Slack for questions about each deployed topic (uses shared Slack Miner skill). Deduplicates, ranks, and presents FAQ candidates for user approval. Does NOT auto-modify live guides.</div>
+      <div class="ac-details"><div class="ac-detail"><strong>Question mining:</strong> Slack search for "?", "how do I", "what is" + topic keywords</div><div class="ac-detail"><strong>Canvas extraction:</strong> parse informal Q&A sections</div><div class="ac-detail"><strong>Deduplication:</strong> cluster similar questions, best phrasing</div><div class="ac-detail"><strong>Answer sourcing:</strong> draft answers from threads and guide content</div><div class="ac-detail"><strong>Human review:</strong> presents ranked candidates — user approves before injection</div></div>
+    </div></div>
+  </div>
+
+  <div class="phase-section" id="sec-pdf">
+    <div class="phase-header"><div class="phase-icon" style="background:linear-gradient(135deg,#4a8a80,#6ec6b8)">6</div><div><h2>Phase 6 — Customer-Facing PDF</h2><p>Dynamic, unique PDFs with AE customization</p></div></div>
+    <div class="agents-grid"><div class="agent-card full"><div class="ac-header"><div class="ac-icon" style="background:linear-gradient(135deg,#4a8a80,#6ec6b8)">&#128196;</div><div class="ac-name">PDF Agent</div><span class="ac-type agent">Agent</span></div>
+      <div class="ac-desc">Generates unique branded customer PDFs per topic. Every PDF uses a different layout. AE can customize. Internal links scrubbed. Uses shared Diagram Harvester and Internal URL Scanner skills.</div>
+      <div class="ac-details"><div class="ac-detail"><strong>Dynamic layout:</strong> architecture → diagrams first; competitive → tables first</div><div class="ac-detail"><strong>AE customization:</strong> sections, follow-ups, account context</div><div class="ac-detail"><strong>Internal link scrubber:</strong> shared with Testing Agent</div><div class="ac-detail"><strong>Diagram selection:</strong> shared Diagram Harvester picks most relevant</div><div class="ac-detail"><strong>Version tracking:</strong> content hash flags stale PDFs</div></div>
+    </div></div>
+  </div>
+
+  <div class="phase-section" id="sec-maintain">
+    <div class="phase-header"><div class="phase-icon" style="background:linear-gradient(135deg,#2a6b5e,#4ade80)">7</div><div><h2>Phase 7 — Monitoring & Maintenance</h2><p>Keep the entire Hub healthy, fresh, and evolving</p></div></div>
+    <div class="agents-grid"><div class="agent-card full"><div class="ac-header"><div class="ac-icon" style="background:linear-gradient(135deg,#2a6b5e,#4ade80)">&#128200;</div><div class="ac-name">Maintenance Agent</div><span class="ac-type scheduled">Weekly</span></div>
+      <div class="ac-desc">System immune system. Checks health of every deployed topic weekly. Detects content decay, usage drop-off, integrity issues. Triggers re-research for stale topics.</div>
+      <div class="ac-details"><div class="ac-detail"><strong>Usage analytics:</strong> Heroku logs — traffic vs. dead topics</div><div class="ac-detail"><strong>Content decay:</strong> 60 days no update + new Slack discussions → flag</div><div class="ac-detail"><strong>Hub integrity:</strong> shared skill with Testing Agent — sidebar links, counts</div><div class="ac-detail"><strong>Dependency monitoring:</strong> SF release calendar → flag affected topics</div><div class="ac-detail"><strong>Refresh trigger:</strong> push stale topics back into Intake Queue</div><div class="ac-detail"><strong>Weekly digest:</strong> healthy / needs refresh / new FAQs added</div></div>
+    </div></div>
+  </div>
+
+  <!-- MCP TOOLS -->
+  <div class="phase-section" id="sec-tools">
+    <div class="phase-header"><div class="phase-icon" style="background:var(--purple)">&#128295;</div><div><h2>MCP Tools Reference</h2><p>All integrations available to the agent system</p></div></div>
+    <h3 style="font-size:14px;font-weight:700;margin-bottom:12px">Slack</h3>
+    <div class="tools-grid">
+      <div class="tool-card"><h5>Search</h5><p>Messages, files, canvases</p><div class="tc-mcp">slack_search_public_and_private</div></div>
+      <div class="tool-card"><h5>Read Canvas</h5><p>Full markdown content</p><div class="tc-mcp">slack_read_canvas</div></div>
+      <div class="tool-card"><h5>Read Thread</h5><p>All messages in a thread</p><div class="tc-mcp">slack_read_thread</div></div>
+      <div class="tool-card"><h5>Send Message</h5><p>Post to channels/DMs</p><div class="tc-mcp">slack_send_message</div></div>
+    </div>
+    <h3 style="font-size:14px;font-weight:700;margin:20px 0 12px">Google Workspace</h3>
+    <div class="tools-grid">
+      <div class="tool-card"><h5>Search Drive</h5><p>Find files across Drive</p><div class="tc-mcp">search_drive_files</div></div>
+      <div class="tool-card"><h5>Read Doc</h5><p>Get content as markdown</p><div class="tc-mcp">get_doc_as_markdown</div></div>
+      <div class="tool-card"><h5>Read Slides</h5><p>Presentation structure</p><div class="tc-mcp">get_presentation</div></div>
+      <div class="tool-card"><h5>Slide Thumbnail</h5><p>Page as image</p><div class="tc-mcp">get_page_thumbnail</div></div>
+    </div>
+    <h3 style="font-size:14px;font-weight:700;margin:20px 0 12px">Salesforce & Other</h3>
+    <div class="tools-grid">
+      <div class="tool-card"><h5>SOQL Query</h5><p>Run queries against org62</p><div class="tc-mcp">mcp__salesforce__run_soql_query</div></div>
+      <div class="tool-card"><h5>WebFetch</h5><p>Fetch public web pages</p><div class="tc-mcp">WebFetch</div></div>
+      <div class="tool-card"><h5>WebSearch</h5><p>Search the public web</p><div class="tc-mcp">WebSearch</div></div>
+      <div class="tool-card"><h5>File System</h5><p>Read, Write, Edit local</p><div class="tc-mcp">Read / Write / Edit</div></div>
+    </div>
+  </div>
+
+  <!-- BUILD ORDER -->
+  <div class="phase-section" id="sec-priority">
+    <div class="phase-header"><div class="phase-icon" style="background:var(--green)">&#9733;</div><div><h2>Build Order</h2><p>Implementation priority for maximum leverage</p></div></div>
+    <table class="pri-table">
+      <thead><tr><th>#</th><th>Agent / Skill</th><th>Type</th><th>Effort</th><th>Leverage</th><th>Rationale</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pri-num" style="background:var(--red)">1</span></td><td><strong>Research Agent</strong></td><td>Standalone</td><td>Medium</td><td>Very High</td><td>Saves 2-4 hrs/topic. Highest ROI.</td></tr>
+        <tr><td><span class="pri-num" style="background:var(--red)">2</span></td><td><strong>Testing Agent</strong></td><td>Scheduled</td><td>Medium</td><td>High</td><td>Quality gate. Catches rot before users do.</td></tr>
+        <tr><td><span class="pri-num" style="background:var(--amber)">3</span></td><td><strong>Deploy Skill</strong></td><td>Skill</td><td>Low</td><td>High</td><td>Extract from /article with rollback.</td></tr>
+        <tr><td><span class="pri-num" style="background:var(--amber)">4</span></td><td><strong>FAQ Agent</strong></td><td>Scheduled</td><td>Low</td><td>Medium</td><td>Low effort, mine Slack questions.</td></tr>
+        <tr><td><span class="pri-num" style="background:var(--blue-mid)">5</span></td><td><strong>Notification Agent</strong></td><td>Always-on</td><td>Low</td><td>Medium</td><td>Makes the system visible.</td></tr>
+        <tr><td><span class="pri-num" style="background:var(--blue-mid)">6</span></td><td><strong>PDF Agent</strong></td><td>On-demand</td><td>High</td><td>High</td><td>Customer differentiation.</td></tr>
+        <tr><td><span class="pri-num" style="background:var(--ink3)">7</span></td><td><strong>Intake Agent</strong></td><td>On-demand</td><td>Low</td><td>Low</td><td>Needed at scale.</td></tr>
+        <tr><td><span class="pri-num" style="background:var(--ink3)">8</span></td><td><strong>Maintenance Agent</strong></td><td>Weekly</td><td>Medium</td><td>Medium</td><td>Long-term health.</td></tr>
+      </tbody>
+    </table>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 22px;margin-top:16px">
+      <h4 style="font-size:14px;font-weight:700;margin-bottom:10px">Recommended sprints</h4>
+      <div style="font-size:12.5px;color:var(--ink2);line-height:2">
+        <strong style="color:var(--red)">Sprint 1:</strong> Research Agent — unblocks every future topic<br>
+        <strong style="color:var(--amber)">Sprint 2:</strong> Testing Agent + Deploy Skill — quality gate + shipping<br>
+        <strong style="color:var(--blue-mid)">Sprint 3:</strong> FAQ Agent + Notification Agent — freshness + visibility<br>
+        <strong style="color:var(--ink3)">Sprint 4:</strong> PDF Agent — customer-facing output<br>
+        <strong style="color:var(--ink3)">Sprint 5:</strong> Intake + Maintenance — full lifecycle automation
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">Enablement Hub Pipeline Architecture &middot; May 2026 &middot; Built with Claude Code</div>
+</div>
+
+<script>
+// ===== PHASE TABS =====
+function showPhase(id) {
+  document.querySelectorAll('.phase-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.phase-tab').forEach(t => t.classList.remove('active'));
+  const sec = document.getElementById('sec-' + id);
+  if (sec) sec.classList.add('active');
+  document.querySelectorAll('.phase-tab').forEach(t => {
+    const txt = t.textContent.toLowerCase();
+    if (id==='agents'&&txt.includes('inventory')) t.classList.add('active');
+    else if (id==='intake'&&txt.includes('intake')) t.classList.add('active');
+    else if (id==='research'&&txt.includes('research')) t.classList.add('active');
+    else if (id==='assembly'&&txt.includes('assembly')) t.classList.add('active');
+    else if (id==='testing'&&txt.includes('testing')) t.classList.add('active');
+    else if (id==='deploy'&&txt.includes('deploy')) t.classList.add('active');
+    else if (id==='faq'&&txt.includes('faq')) t.classList.add('active');
+    else if (id==='pdf'&&txt.includes('pdf')) t.classList.add('active');
+    else if (id==='maintain'&&txt.includes('maintain')) t.classList.add('active');
+    else if (id==='tools'&&txt.includes('mcp')) t.classList.add('active');
+    else if (id==='priority'&&txt.includes('build')) t.classList.add('active');
+  });
+}
+
+// ===== D3 GRAPH DATA =====
+// Phosphor duotone SVG paths (viewBox 0 0 256 256)
+const ICONS = {
+  hub: { // atom
+    duo: 'M196,40A28,28,0,0,0,152.8,57.06l-6.53,5.64A95.87,95.87,0,0,0,128,60a95.87,95.87,0,0,0-18.27,2.7l-6.53-5.64A28,28,0,1,0,60,40,27.8,27.8,0,0,0,71.11,61.17,96.07,96.07,0,0,0,32,128a96.07,96.07,0,0,0,39.11,66.83A28,28,0,1,0,103.2,198.94l6.53-5.64A95.87,95.87,0,0,0,128,196a95.87,95.87,0,0,0,18.27-2.7l6.53,5.64A28,28,0,1,0,196,216a27.8,27.8,0,0,0-11.11-21.17A96.07,96.07,0,0,0,224,128a96.07,96.07,0,0,0-39.11-66.83A27.8,27.8,0,0,0,196,40Z',
+    line: 'M128,96a32,32,0,1,0,32,32A32,32,0,0,0,128,96Zm0,48a16,16,0,1,1,16-16A16,16,0,0,1,128,144Z'
+  },
+  intake: { // tray-arrow-down
+    duo: 'M208,32H48A16,16,0,0,0,32,48V159.45a8,8,0,0,0,.72,3.31l24,48A16,16,0,0,0,71.06,220H184.94a16,16,0,0,0,14.34-8.86l24-48a8,8,0,0,0,.72-3.31V48A16,16,0,0,0,208,32Z',
+    line: 'M165.66,109.66l-32,32a8,8,0,0,1-11.32,0l-32-32a8,8,0,0,1,11.32-11.32L120,116.69V56a8,8,0,0,1,16,0v60.69l18.34-18.35a8,8,0,0,1,11.32,11.32ZM208,160H168a8,8,0,0,0-8,8,32,32,0,0,1-64,0,8,8,0,0,0-8-8H48'
+  },
+  research: { // magnifying-glass-plus
+    duo: 'M168,112a56,56,0,1,1-56-56A56,56,0,0,1,168,112Z',
+    line: 'M229.66,229.66a8,8,0,0,1-11.32,0l-40.78-40.78a96.1,96.1,0,1,1,11.32-11.32l40.78,40.78A8,8,0,0,1,229.66,229.66ZM144,104H120V80a8,8,0,0,0-16,0v24H80a8,8,0,0,0,0,16h24v24a8,8,0,0,0,16,0V120h24a8,8,0,0,0,0-16Z'
+  },
+  assembly: { // paint-brush
+    duo: 'M224,32a8,8,0,0,0-8-8c-44.18,0-71.17,22.76-88.63,46.13-6.91,9.25-12.72,18.6-17.68,27.11L72,88a16,16,0,0,0-22.63,0L28.69,108.69a16,16,0,0,0,0,22.62L65.37,168,48,185.37a32,32,0,0,0,0,45.25A32,32,0,0,0,70.63,240a32,32,0,0,0,22.63-9.37L111,213.37l36.69,36.69a16,16,0,0,0,22.62,0L191,229.37a16,16,0,0,0,0-22.62l-9.24-9.25c8.51-5,17.86-10.77,27.11-17.68C232.24,159.17,224,88.18,224,32Z',
+    line: 'M164.48,117.14,117.14,164.48'
+  },
+  testing: { // seal-check
+    duo: 'M225.86,102.43l-13.42-15.57,2.42-20.43a16,16,0,0,0-12.24-17l-20-4.71L170.14,27.1a16,16,0,0,0-19.89-6.63L132,27.83,113.75,20.47a16,16,0,0,0-19.89,6.63L81.38,44.72l-20,4.71a16,16,0,0,0-12.24,17l2.42,20.43-13.42,15.57a16,16,0,0,0,0,21.14l13.42,15.57-2.42,20.43a16,16,0,0,0,12.24,17l20,4.71,12.48,17.62a16,16,0,0,0,19.89,6.63L132,198.17l18.25,7.36a16,16,0,0,0,19.89-6.63l12.48-17.62,20-4.71a16,16,0,0,0,12.24-17l-2.42-20.43,13.42-15.57A16,16,0,0,0,225.86,102.43Z',
+    line: 'M172,104,113.33,160,84,132'
+  },
+  deploy: { // rocket-launch
+    duo: 'M152,224a8,8,0,0,1-8,8H112a8,8,0,0,1,0-16h32A8,8,0,0,1,152,224Zm73.69-85.06a8,8,0,0,1-8.25,1.49l-28.62-12.26A95.7,95.7,0,0,1,160,168.13V200a8,8,0,0,1-2.34,5.66l-32,32a8,8,0,0,1-13.29-3l-17.84-57.29L60.34,160a8,8,0,0,1-3-13.29l32-32A8,8,0,0,1,95,112.37V83.18a95.7,95.7,0,0,1,39.83-28.82L122.57,25.74A8,8,0,0,1,128,16h0a96.06,96.06,0,0,1,96,96h0A8,8,0,0,1,225.69,138.94Z',
+    line: 'M168,88a16,16,0,1,1-16-16A16,16,0,0,1,168,88Z'
+  },
+  faq: { // chat-circle-dots
+    duo: 'M232,128A104,104,0,0,1,79.12,224.76L46.33,234a16,16,0,0,1-20.36-20.36l9.22-32.79A104,104,0,1,1,232,128Z',
+    line: 'M128,140a12,12,0,1,1,12-12A12,12,0,0,1,128,140Zm-44,0a12,12,0,1,1,12-12A12,12,0,0,1,84,140Zm88,0a12,12,0,1,1,12-12A12,12,0,0,1,172,140Z'
+  },
+  pdf: { // file-text
+    duo: 'M208,88H152V32Z',
+    line: 'M200,224H56a8,8,0,0,1-8-8V40a8,8,0,0,1,8-8h96l56,56V216A8,8,0,0,1,200,224ZM96,128h64M96,160h64'
+  },
+  maintain: { // heartbeat
+    duo: 'M128,216S28,160,28,92A52,52,0,0,1,128,72h0A52,52,0,0,1,228,92C228,160,128,216,128,216Z',
+    line: 'M28,128H76l20-40,32,80,20-40h80'
+  },
+  notify: { // bell-ringing
+    duo: 'M168,224H88a8,8,0,0,1,0-16h80a8,8,0,0,1,0,16Zm32.43-77.43A60.09,60.09,0,0,1,140,92V56a12,12,0,0,0-24,0V92a60.09,60.09,0,0,1-60.43,54.57A16,16,0,0,0,48,160v8a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16v-8A16,16,0,0,0,200.43,146.57Z',
+    line: 'M29.71,36.69a8,8,0,0,0,0,11.32A155.53,155.53,0,0,1,74.82,105.3M226.29,36.69a8,8,0,0,1,0,11.32A155.53,155.53,0,0,0,181.18,105.3'
+  },
+  skill: { // diamond
+    duo: 'M128,24,24,128l104,104L232,128Z',
+    line: ''
+  },
+  shared: { // circles-three-plus
+    duo: 'M128,24,24,128l104,104L232,128Z',
+    line: ''
+  }
+};
+
+const hub = {
+  id:'hub', name:'Enablement Hub', subtitle:'Master Orchestrator',
+  color:['#FFB75D','#f59e0b'], iconKey:'hub', type:'hub', r:58,
+  desc:'Central orchestrator coordinating all agents. Manages the topic lifecycle from submission through deployment and ongoing maintenance.',
+  inputs:['Topic submissions','Agent outputs','Usage analytics'],
+  outputs:['Deployed field guides','Topic registry','Health dashboard'],
+  details:['Routes new topics to Intake for triage','Tracks status: queued → researching → building → testing → live','Maintains sidebar registry and topic card index','Heroku-deployed portal','Receives health reports and triggers refresh cycles']
+};
+
+// Shared skills — these connect to multiple agents
+const sharedSkills = [
+  { id:'ss-slack-mine', name:'Slack Miner', desc:'Canvases, threads, files, channels', color:'#0176D3', agents:['research','faq','maintain'] },
+  { id:'ss-drive-scan', name:'Drive Scanner', desc:'Docs, Slides, Sheets, BRDs', color:'#3d8fd9', agents:['research','assembly'] },
+  { id:'ss-sf-query', name:'SF Querier', desc:'SOQL for opps, products, refs', color:'#60a5fa', agents:['research','maintain'] },
+  { id:'ss-diagram', name:'Diagram Harvester', desc:'Slides → SVG/images for web & PDF', color:'#7c3aed', agents:['assembly','pdf'] },
+  { id:'ss-link-check', name:'Link Checker', desc:'404s, redirects, timeouts', color:'#c4411a', agents:['testing','pdf'] },
+  { id:'ss-internal-scan', name:'Internal URL Scanner', desc:'No internal links leak out', color:'#dc2626', agents:['testing','pdf'] },
+  { id:'ss-hub-wire', name:'Hub Wiring', desc:'Sidebar + card + count update', color:'#0a4f99', agents:['deploy','maintain'] },
+];
+
+const agents = [
+  {
+    id:'intake', name:'Intake Agent', phase:'Phase 0', trigger:'On-demand',
+    color:['#7e8aa3','#5a6b82'], iconKey:'intake', r:38,
+    desc:'Accepts topic submissions. Deduplicates, classifies, and prioritizes based on demand signals.',
+    inputs:['Slack command','CLI /intake','CLI /article','Maintenance triggers'],
+    outputs:['Queue entry','Priority score','Duplicate flag'],
+    details:['Checks registry for existing topics','Slack volume search for demand','Classifies: New / Update / Out of scope','Writes to topics-queue.json'],
+    exclusiveSkills:[
+      {id:'s-dedup',name:'Dedup Check',desc:'Match against topic registry',color:'#7e8aa3'},
+      {id:'s-classify',name:'Topic Classifier',desc:'Product / Process / Competitive',color:'#5a6b82'},
+      {id:'s-prioritize',name:'Priority Scorer',desc:'Demand signals → priority',color:'#8a9ab3'}
+    ]
+  },
+  {
+    id:'research', name:'Research Agent', phase:'Phase 1', trigger:'On-demand',
+    color:['#0176D3','#60a5fa'], iconKey:'research', r:42,
+    desc:'Highest-leverage agent. Parallel deep search across Slack, Drive, SF, web. Ranks sources by authority. Identifies SMEs. Structured research report with gaps.',
+    inputs:['Slack canvases','Slack threads','Google Docs','Google Slides','Salesforce SOQL','Public web'],
+    outputs:['Research Report','Source Ranking','SME Contacts','Gap Analysis','Competitive Intel'],
+    details:['Slack: canvases, threads, files — full reads','Drive: BRDs, arch docs, diagram inventory','SF: opps, product records, references','Web: docs, Trailhead, competitor positioning','SME ID: most prolific content author','Gap report: discussed but undocumented'],
+    exclusiveSkills:[
+      {id:'s-web-fetch',name:'Web Researcher',desc:'Public docs + competitor intel',color:'#0a4f99'},
+      {id:'s-sme-id',name:'SME Identifier',desc:'Find subject-matter experts',color:'#2563eb'},
+      {id:'s-source-rank',name:'Source Ranker',desc:'BRD > Canvas > Slides > Thread > Blog > Web',color:'#1d4ed8'}
+    ]
+  },
+  {
+    id:'assembly', name:'Assembly Agent', phase:'Phase 2', trigger:'Post-approval',
+    color:['#5a3e9e','#8b6fc0'], iconKey:'assembly', r:40,
+    desc:'Transforms research into production field guide. Unique layout per topic. AE-friendly narrative. 4-tab structure.',
+    inputs:['Research Report','Template library','Style reference'],
+    outputs:['Field guide app','composer.json','Procfile'],
+    details:['AgentFabric/index.html as style ref','Tab structure based on topic type','Pitch cards, compare splits, proof points','Each topic unique section arrangement','Embeds diagrams via shared Diagram Harvester'],
+    exclusiveSkills:[
+      {id:'s-template',name:'Template Engine',desc:'4-tab layout, unique per topic',color:'#5a3e9e'},
+      {id:'s-copywriter',name:'Copywriter',desc:'AE-friendly narrative',color:'#8b6fc0'},
+      {id:'s-component',name:'Component Builder',desc:'Pullquotes, pitch cards, stacks',color:'#a78bfa'}
+    ]
+  },
+  {
+    id:'testing', name:'Testing Agent', phase:'Phase 3', trigger:'2-3x/week',
+    color:['#c4411a','#f87171'], iconKey:'testing', r:40,
+    desc:'Quality guardian. Post-build + scheduled. Links, facts, diagrams, internal URLs, completeness. Failures block deploy.',
+    inputs:['All deployed apps','Source docs','help.salesforce.com'],
+    outputs:['Test Report','Diff report','Fix instructions'],
+    details:['Link validation: HTTP check every href','Internal URL scan (shared with PDF)','Fact checking vs. official docs','Diagram freshness: source modified?','Content completeness check','Hub consistency: sidebar matches URLs','Diff reporting on scheduled runs'],
+    exclusiveSkills:[
+      {id:'s-fact-check',name:'Fact Checker',desc:'Verify vs. official docs',color:'#f87171'},
+      {id:'s-diagram-fresh',name:'Diagram Freshness',desc:'Source modified since embed?',color:'#ef4444'},
+      {id:'s-completeness',name:'Completeness Check',desc:'Required sections present',color:'#b91c1c'}
+    ]
+  },
+  {
+    id:'deploy', name:'Deploy Skill', phase:'Phase 4', trigger:'Tests pass',
+    color:['#032D60','#0a4f99'], iconKey:'deploy', r:38,
+    desc:'Discrete deploy op. Git, Heroku create, push, verify, wire into Hub. Rollback on failure.',
+    inputs:['Built app directory','Test report (pass)'],
+    outputs:['Heroku URL','Hub wiring','Deploy log'],
+    details:['git init + commit','heroku create sf-{slug}','Push + wait for build','Verify HTTP 200','Update Hub sidebar/card/count (shared Hub Wiring)','Rollback on failure'],
+    exclusiveSkills:[
+      {id:'s-heroku-push',name:'Heroku Push',desc:'Create app + deploy',color:'#032D60'},
+      {id:'s-rollback',name:'Rollback',desc:'Revert on failure',color:'#1e3a5f'}
+    ]
+  },
+  {
+    id:'faq', name:'FAQ Agent', phase:'Phase 5', trigger:'Daily',
+    color:['#b06000','#fbbf24'], iconKey:'faq', r:38,
+    desc:'Slack mining for topic questions (shared Slack Miner). Dedup, rank, present FAQ candidates for user approval. Does NOT auto-modify live guides.',
+    inputs:['Slack channels','Canvases','Drive FAQs'],
+    outputs:['FAQ Candidates','Gap flags','Content gap report'],
+    details:['Question mining: "how do I", "what is" + keywords','Canvas Q&A extraction','Dedup: cluster + best phrasing','Answer sourcing: draft from threads and guide content','Present candidates for user review — no auto-append','Gap: no answer → content gap signal'],
+    exclusiveSkills:[
+      {id:'s-q-dedup',name:'Deduplicator',desc:'Cluster + best phrasing',color:'#d97706'},
+      {id:'s-q-append',name:'Candidate Presenter',desc:'Rank + present for user approval',color:'#fbbf24'}
+    ]
+  },
+  {
+    id:'pdf', name:'PDF Agent', phase:'Phase 6', trigger:'AE download',
+    color:['#4a8a80','#6ec6b8'], iconKey:'pdf', r:40,
+    desc:'Unique branded customer PDF per topic. Dynamic layout. AE customizes. Uses shared Diagram Harvester + Internal URL Scanner.',
+    inputs:['Field guide content','AE input','Account context','Diagram library'],
+    outputs:['Branded PDF','Version hash','Download log'],
+    details:['Dynamic layout per topic type','AE customization modal','Internal link scrubber (shared)','Diagram selection (shared Harvester)','Brand compliance + disclaimers','Version hash flags stale PDFs'],
+    exclusiveSkills:[
+      {id:'s-pdf-layout',name:'Layout Engine',desc:'Unique template per topic type',color:'#4a8a80'},
+      {id:'s-pdf-custom',name:'AE Customizer',desc:'Section select + follow-ups',color:'#2d6a5e'},
+      {id:'s-pdf-render',name:'PDF Renderer',desc:'HTML → branded PDF',color:'#3d9488'}
+    ]
+  },
+  {
+    id:'maintain', name:'Maintenance Agent', phase:'Phase 7', trigger:'Weekly',
+    color:['#2a6b5e','#4ade80'], iconKey:'maintain', r:40,
+    desc:'System immune system. Weekly health check: decay, usage, integrity. Triggers re-research for stale topics.',
+    inputs:['Heroku logs','Slack','All apps','SF release notes'],
+    outputs:['Health report','Refresh triggers','Weekly digest'],
+    details:['Usage analytics: Heroku log traffic','Content decay: 60d + new Slack → flag','Hub integrity (shared with Testing)','Dependency: SF release calendar','Refresh trigger → Intake Queue','Weekly digest to Sandeep'],
+    exclusiveSkills:[
+      {id:'s-usage',name:'Usage Tracker',desc:'Heroku log analytics',color:'#2a6b5e'},
+      {id:'s-decay',name:'Decay Detector',desc:'60d stale + active Slack',color:'#16a34a'},
+      {id:'s-digest',name:'Weekly Digest',desc:'Summary report',color:'#22c55e'}
+    ]
+  },
+  {
+    id:'notify', name:'Notification Agent', phase:'Cross-cut', trigger:'Always-on',
+    color:['#FFB75D','#f59e0b'], iconKey:'notify', r:36,
+    desc:'Cross-cutting concern embedded in each agent\'s final step. Posts to Slack on agent completion. Not a standalone agent.',
+    inputs:['All agent outputs','Download logs','Test reports'],
+    outputs:['Slack posts','Analytics digest','DM alerts'],
+    details:['Embedded in each agent — not a separate command','New deploy → post URL + summary','Test issues → severity + topic','Decay flagged → DM Sandeep','Requires user confirmation before sending'],
+    exclusiveSkills:[
+      {id:'s-slack-post',name:'Slack Poster',desc:'Channel + DM notifications',color:'#FFB75D'},
+      {id:'s-analytics',name:'Analytics Digest',desc:'Weekly usage summary',color:'#f59e0b'}
+    ]
+  }
+];
+
+const agentFlows = [
+  {source:'intake',target:'research',label:'Approved topic'},
+  {source:'research',target:'assembly',label:'Research report'},
+  {source:'assembly',target:'testing',label:'Built app'},
+  {source:'testing',target:'deploy',label:'Test pass'},
+  {source:'testing',target:'assembly',label:'Test fail → fix'},
+  {source:'deploy',target:'faq',label:'Live topic'},
+  {source:'faq',target:'testing',label:'Updated content'},
+  {source:'pdf',target:'testing',label:'Validate PDF'},
+  {source:'maintain',target:'intake',label:'Refresh trigger'},
+];
+
+// ===== D3 GRAPH =====
+const graphEl = document.querySelector('.graph-section');
+const W = graphEl.clientWidth;
+const H = graphEl.clientHeight;
+const CX = W / 2 - 100;
+const CY = H / 2;
+
+const svg = d3.select('#graph').attr('viewBox', `0 0 ${W} ${H}`);
+
+const defs = svg.append('defs');
+const glow = defs.append('filter').attr('id','glow');
+glow.append('feGaussianBlur').attr('stdDeviation','4').attr('result','blur');
+glow.append('feMerge').selectAll('feMergeNode').data(['blur','SourceGraphic']).enter().append('feMergeNode').attr('in',d=>d);
+
+const sharedGlow = defs.append('filter').attr('id','sharedGlow');
+sharedGlow.append('feGaussianBlur').attr('stdDeviation','3').attr('result','blur');
+const merge2 = sharedGlow.append('feMerge');
+merge2.append('feMergeNode').attr('in','blur');
+merge2.append('feMergeNode').attr('in','SourceGraphic');
+
+const hubGrad = defs.append('radialGradient').attr('id','hub-grad');
+hubGrad.append('stop').attr('offset','0%').attr('stop-color','#FFB75D');
+hubGrad.append('stop').attr('offset','100%').attr('stop-color','#f59e0b');
+
+agents.forEach(a => {
+  const g = defs.append('linearGradient').attr('id',`grad-${a.id}`).attr('x1','0%').attr('y1','0%').attr('x2','100%').attr('y2','100%');
+  g.append('stop').attr('offset','0%').attr('stop-color',a.color[0]);
+  g.append('stop').attr('offset','100%').attr('stop-color',a.color[1]);
+});
+
+defs.append('marker').attr('id','arrow').attr('viewBox','0 0 10 6').attr('refX',10).attr('refY',3)
+  .attr('markerWidth',8).attr('markerHeight',6).attr('orient','auto')
+  .append('path').attr('d','M0,0 L10,3 L0,6 Z').attr('fill','var(--highlight)').attr('opacity',0.5);
+
+let nodes = [];
+let links = [];
+let expandedAgent = null;
+
+nodes.push({ id:hub.id, ...hub, fx:CX, fy:CY, nodeType:'hub' });
+
+const agentR = Math.min(W, H) * 0.32;
+agents.forEach((a, i) => {
+  const angle = (i / agents.length) * 2 * Math.PI - Math.PI / 2;
+  nodes.push({
+    id:a.id, ...a, nodeType:'agent',
+    x: CX + Math.cos(angle) * agentR,
+    y: CY + Math.sin(angle) * agentR
+  });
+  links.push({ source:'hub', target:a.id, linkType:'hub-agent' });
+});
+
+agentFlows.forEach(f => {
+  links.push({ source:f.source, target:f.target, linkType:'agent-flow', label:f.label });
+});
+
+const simulation = d3.forceSimulation(nodes)
+  .force('charge', d3.forceManyBody().strength(d => d.nodeType==='hub'?-1000:d.nodeType==='agent'?-500:-120))
+  .force('link', d3.forceLink(links).id(d=>d.id).distance(d => {
+    if(d.linkType==='hub-agent') return agentR;
+    if(d.linkType==='agent-skill'||d.linkType==='shared-skill') return 80;
+    return agentR*1.4;
+  }).strength(d => {
+    if(d.linkType==='hub-agent') return 0.3;
+    if(d.linkType==='agent-skill') return 0.7;
+    if(d.linkType==='shared-skill') return 0.15;
+    return 0.04;
+  }))
+  .force('collision', d3.forceCollide().radius(d => (d.r||20)+12))
+  .force('center', d3.forceCenter(CX, CY).strength(0.015))
+  .on('tick', ticked);
+
+const linkGroup = svg.append('g');
+const nodeGroup = svg.append('g');
+
+function render() {
+  // Links
+  const link = linkGroup.selectAll('line').data(links, d=>`${d.source.id||d.source}-${d.target.id||d.target}-${d.linkType}`);
+  link.exit().transition().duration(300).attr('opacity',0).remove();
+  link.enter().append('line')
+    .attr('stroke', d => {
+      if(d.linkType==='agent-flow') return 'var(--highlight)';
+      if(d.linkType==='shared-skill') return 'var(--amber)';
+      if(d.linkType==='agent-skill') return d.skillColor||'var(--sage)';
+      return 'var(--border)';
+    })
+    .attr('stroke-width', d => d.linkType==='hub-agent'?2:d.linkType==='shared-skill'?2:d.linkType==='agent-skill'?1.5:1)
+    .attr('stroke-dasharray', d => d.linkType==='agent-flow'?'6,4':d.linkType==='shared-skill'?'4,3':'none')
+    .attr('opacity',0)
+    .attr('marker-end', d => d.linkType==='agent-flow'?'url(#arrow)':'')
+    .transition().duration(400).attr('opacity', d => d.linkType==='agent-flow'?0.3:d.linkType==='shared-skill'?0.6:0.5);
+
+  // Nodes
+  const node = nodeGroup.selectAll('g.node').data(nodes, d=>d.id);
+  node.exit().transition().duration(300).attr('opacity',0).remove();
+
+  const ne = node.enter().append('g').attr('class','node').style('cursor','pointer').attr('opacity',0)
+    .call(d3.drag().on('start',dragstarted).on('drag',dragged).on('end',dragended));
+
+  // Shared skill: double ring
+  ne.filter(d=>d.nodeType==='shared-skill').append('circle')
+    .attr('r',d=>(d.r||16)+4)
+    .attr('fill','none').attr('stroke','var(--amber)').attr('stroke-width',2).attr('stroke-dasharray','3,2').attr('opacity',0.7);
+
+  // Main circle
+  ne.append('circle')
+    .attr('r',d=>d.r||20)
+    .attr('fill',d=>{
+      if(d.nodeType==='hub') return 'url(#hub-grad)';
+      if(d.nodeType==='agent') return `url(#grad-${d.id})`;
+      return d.skillColor||d.color?.[0]||'#4a8a80';
+    })
+    .attr('stroke',d=>d.nodeType==='hub'?'rgba(255,255,255,0.6)':d.nodeType==='shared-skill'?'var(--amber)':'rgba(255,255,255,0.25)')
+    .attr('stroke-width',d=>d.nodeType==='hub'?3:d.nodeType==='shared-skill'?1.5:d.nodeType==='agent'?2:1)
+    .attr('filter',d=>d.nodeType==='hub'?'url(#glow)':d.nodeType==='shared-skill'?'url(#sharedGlow)':'none');
+
+  // Pulse for hub
+  ne.filter(d=>d.nodeType==='hub').each(function(d){
+    const g = d3.select(this);
+    const pulse = g.append('circle').attr('r',d.r).attr('fill','none').attr('stroke','var(--highlight)').attr('stroke-width',1.5).attr('opacity',0);
+    (function repeat(){
+      pulse.attr('r',d.r).attr('opacity',0.5)
+        .transition().duration(2500).attr('r',d.r+22).attr('opacity',0)
+        .on('end',repeat);
+    })();
+  });
+
+  // Phosphor duotone SVG icon
+  ne.each(function(d) {
+    const g = d3.select(this);
+    const key = d.iconKey || (d.nodeType==='shared-skill'?'shared':'skill');
+    const icon = ICONS[key];
+    if (!icon) {
+      g.append('text').attr('text-anchor','middle').attr('dominant-baseline','central')
+        .attr('font-size','11px').attr('pointer-events','none').attr('fill','#fff').text('◆');
+      return;
+    }
+    const size = d.nodeType==='hub' ? 52 : d.nodeType==='agent' ? 40 : 18;
+    const ig = g.append('g')
+      .attr('transform', `translate(${-size/2},${-size/2}) scale(${size/256})`)
+      .attr('pointer-events','none');
+    if (icon.duo) {
+      ig.append('path').attr('d', icon.duo)
+        .attr('fill', 'rgba(255,255,255,0.25)').attr('stroke','none');
+    }
+    if (icon.line) {
+      ig.append('path').attr('d', icon.line)
+        .attr('fill', 'none').attr('stroke', '#fff').attr('stroke-width', 16)
+        .attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round');
+    }
+  });
+
+  // Label
+  ne.append('text').attr('text-anchor','middle').attr('y',d=>(d.r||20)+14)
+    .attr('font-size',d=>d.nodeType==='hub'?'13px':d.nodeType==='agent'?'11px':'9px')
+    .attr('font-weight',d=>d.nodeType==='skill'||d.nodeType==='shared-skill'?'500':'700')
+    .attr('fill',d=>d.nodeType==='shared-skill'?'var(--amber)':'var(--ink2)')
+    .attr('pointer-events','none')
+    .text(d=>d.nodeType==='hub'?'Enablement Hub':d.name);
+
+  // Phase sub-label
+  ne.filter(d=>d.nodeType==='agent').append('text')
+    .attr('text-anchor','middle').attr('y',d=>(d.r||20)+26)
+    .attr('font-size','9px').attr('fill','var(--ink3)').attr('pointer-events','none')
+    .text(d=>d.phase);
+
+  // "Shared" tag for shared skills
+  ne.filter(d=>d.nodeType==='shared-skill').append('text')
+    .attr('text-anchor','middle').attr('y',d=>(d.r||16)+24)
+    .attr('font-size','8px').attr('fill','var(--amber)').attr('font-weight','600').attr('pointer-events','none')
+    .text('SHARED');
+
+  ne.transition().duration(400).attr('opacity',1);
+
+  // Events
+  ne.on('click', function(event,d) {
+    event.stopPropagation();
+    if(d.nodeType==='hub') { showDetail(d); }
+    else if(d.nodeType==='agent') { toggleSkills(d); showDetail(d); }
+    else { const p=agents.find(a=>a.id===d.parentAgent||(a.exclusiveSkills||[]).some(s=>s.id===d.id));if(p)showDetail(nodes.find(n=>n.id===p.id)); }
+  });
+  ne.on('mouseenter',function(event,d){
+    const tt=document.getElementById('tooltip');
+    let text=d.name;
+    if(d.nodeType==='agent') text+=` — ${d.trigger}`;
+    if(d.nodeType==='skill') text+=': '+d.skillDesc;
+    if(d.nodeType==='shared-skill') text+=' (shared: '+d.agentNames.join(', ')+')';
+    tt.textContent=text; tt.classList.add('show');
+    d3.select(this).select('circle:not([stroke-dasharray])').transition().duration(150).attr('r',(d.r||20)*1.12);
+  }).on('mousemove',function(event){
+    const tt=document.getElementById('tooltip');
+    tt.style.left=(event.clientX+14)+'px'; tt.style.top=(event.clientY-10)+'px';
+  }).on('mouseleave',function(event,d){
+    document.getElementById('tooltip').classList.remove('show');
+    d3.select(this).select('circle:not([stroke-dasharray])').transition().duration(150).attr('r',d.r||20);
+  });
+}
+
+function ticked() {
+  linkGroup.selectAll('line')
+    .attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
+    .attr('x2',d=>{
+      if(d.linkType==='agent-flow'){const dx=d.target.x-d.source.x,dy=d.target.y-d.source.y,dist=Math.sqrt(dx*dx+dy*dy)||1;return d.target.x-(dx/dist)*((d.target.r||20)+8);}
+      return d.target.x;
+    })
+    .attr('y2',d=>{
+      if(d.linkType==='agent-flow'){const dx=d.target.x-d.source.x,dy=d.target.y-d.source.y,dist=Math.sqrt(dx*dx+dy*dy)||1;return d.target.y-(dy/dist)*((d.target.r||20)+8);}
+      return d.target.y;
+    });
+  nodeGroup.selectAll('g.node').attr('transform',d=>`translate(${d.x},${d.y})`);
+}
+
+function dragstarted(event,d){if(!event.active)simulation.alphaTarget(0.15).restart();d.fx=d.x;d.fy=d.y;}
+function dragged(event,d){d.fx=event.x;d.fy=event.y;}
+function dragended(event,d){if(!event.active)simulation.alphaTarget(0);if(d.nodeType!=='hub'){d.fx=null;d.fy=null;}}
+
+function toggleSkills(agent) {
+  if(expandedAgent===agent.id){collapseSkills();return;}
+  collapseSkills();
+  expandedAgent=agent.id;
+
+  const agentData=agents.find(a=>a.id===agent.id);
+  if(!agentData) return;
+
+  // Exclusive skills
+  const exc = agentData.exclusiveSkills||[];
+  const totalSkills = exc.length;
+  // Find shared skills for this agent
+  const shared = sharedSkills.filter(s=>s.agents.includes(agent.id));
+  const allCount = totalSkills + shared.length;
+
+  exc.forEach((s,i)=>{
+    const angle=(i/allCount)*2*Math.PI - Math.PI/2;
+    nodes.push({
+      id:s.id, name:s.name, nodeType:'skill', r:16, icon:'', skillDesc:s.desc, skillColor:s.color,
+      x:agent.x+Math.cos(angle)*80, y:agent.y+Math.sin(angle)*80, parentAgent:agent.id
+    });
+    links.push({source:agent.id, target:s.id, linkType:'agent-skill', skillColor:s.color});
+  });
+
+  shared.forEach((s,i)=>{
+    const angle=((totalSkills+i)/allCount)*2*Math.PI - Math.PI/2;
+    // Check if shared skill node already exists
+    if(!nodes.find(n=>n.id===s.id)){
+      nodes.push({
+        id:s.id, name:s.name, nodeType:'shared-skill', r:18, icon:'', skillDesc:s.desc, skillColor:s.color,
+        agentNames:s.agents.map(aid=>agents.find(a=>a.id===aid)?.name||aid),
+        x:agent.x+Math.cos(angle)*90, y:agent.y+Math.sin(angle)*90, parentAgent:agent.id
+      });
+    }
+    links.push({source:agent.id, target:s.id, linkType:'shared-skill', skillColor:s.color});
+    // Also draw lines to other agents that share this skill
+    s.agents.filter(aid=>aid!==agent.id).forEach(aid=>{
+      if(!links.find(l=>(l.source===aid||l.source.id===aid)&&(l.target===s.id||l.target.id===s.id)&&l.linkType==='shared-skill')){
+        links.push({source:aid, target:s.id, linkType:'shared-skill', skillColor:s.color});
+      }
+    });
+  });
+
+  simulation.nodes(nodes);
+  simulation.force('link').links(links);
+  simulation.alpha(0.5).restart();
+  render();
+}
+
+function collapseSkills() {
+  if(!expandedAgent) return;
+  nodes=nodes.filter(n=>n.nodeType!=='skill'&&n.nodeType!=='shared-skill');
+  links=links.filter(l=>l.linkType!=='agent-skill'&&l.linkType!=='shared-skill');
+  expandedAgent=null;
+  simulation.nodes(nodes);
+  simulation.force('link').links(links);
+  simulation.alpha(0.3).restart();
+  render();
+}
+
+svg.on('click',()=>{collapseSkills();closePanel();});
+
+// Detail panel
+function showDetail(d) {
+  const panel=document.getElementById('detailPanel');
+  const content=document.getElementById('detailContent');
+  const data = d.nodeType==='hub' ? hub : agents.find(a=>a.id===d.id);
+  if(!data) return;
+
+  const colorBg = `linear-gradient(135deg,${data.color[0]},${data.color[1]})`;
+  const typeBg = d.nodeType==='hub'?'background:#fef3d0;color:#b06000':
+    data.trigger==='On-demand'||data.trigger==='Post-approval'?'background:#e3f1fc;color:#0176D3':
+    data.trigger?.includes('week')||data.trigger==='Daily'||data.trigger==='2-3x/week'?'background:#fde8df;color:#c4411a':
+    'background:#d9e9e6;color:#2a6b5e';
+
+  const iconKey = data.iconKey || 'hub';
+  const iconData = ICONS[iconKey];
+  const iconSvg = iconData ? `<svg viewBox="0 0 256 256" width="26" height="26" style="display:block;margin:auto">${iconData.duo?`<path d="${iconData.duo}" fill="rgba(255,255,255,0.3)"/>`:''}${iconData.line?`<path d="${iconData.line}" fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>`:''}` : '';
+  let html=`<div class="dp-icon" style="background:${colorBg}">${iconSvg}</div>
+    <div class="dp-name">${data.name}</div>
+    <span class="dp-type" style="${typeBg}">${d.nodeType==='hub'?'Orchestrator':data.trigger}</span>
+    ${data.phase?`<span class="dp-type" style="background:#f4f9fd;color:var(--ink3);margin-left:4px">${data.phase}</span>`:''}
+    <div class="dp-desc">${data.desc}</div>`;
+
+  if(data.inputs?.length) html+=`<div class="dp-section"><h4>Inputs</h4><div class="dp-chips">${data.inputs.map(i=>`<span class="dp-chip in">${i}</span>`).join('')}</div></div>`;
+  if(data.outputs?.length) html+=`<div class="dp-section"><h4>Outputs</h4><div class="dp-chips">${data.outputs.map(o=>`<span class="dp-chip out">${o}</span>`).join('')}</div></div>`;
+  if(data.details?.length) html+=`<div class="dp-section"><h4>Capabilities</h4>${data.details.map(d=>`<div class="dp-detail"><span>${d}</span></div>`).join('')}</div>`;
+
+  // Exclusive skills
+  const exc = data.exclusiveSkills||[];
+  if(exc.length){
+    html+=`<div class="dp-skills-label">Exclusive Skills (${exc.length})</div>`;
+    html+=exc.map(s=>`<div class="dp-skill-item"><div class="dp-skill-dot" style="background:${s.color}"></div><span class="dp-skill-name">${s.name}</span><span class="dp-skill-desc">${s.desc}</span></div>`).join('');
+  }
+
+  // Shared skills
+  const shared = sharedSkills.filter(s=>s.agents.includes(data.id));
+  if(shared.length){
+    html+=`<div class="dp-skills-label">Shared Skills (${shared.length})</div>`;
+    html+=shared.map(s=>{
+      const others = s.agents.filter(a=>a!==data.id).map(a=>agents.find(ag=>ag.id===a)?.name||a).join(', ');
+      return `<div class="dp-skill-item" style="border-color:var(--amber)"><div class="dp-skill-dot" style="background:${s.color}"></div><span class="dp-skill-name">${s.name}</span><span class="dp-shared-badge">SHARED</span><span class="dp-skill-desc">${others}</span></div>`;
+    }).join('');
+  }
+
+  content.innerHTML=html;
+  panel.classList.add('open');
+}
+
+function closePanel(){document.getElementById('detailPanel').classList.remove('open');}
+
+window.addEventListener('resize',()=>{
+  const w=graphEl.clientWidth, h=graphEl.clientHeight;
+  svg.attr('viewBox',`0 0 ${w} ${h}`);
+  const cx=w/2-100, cy=h/2;
+  const hubNode=nodes.find(n=>n.id==='hub');
+  if(hubNode){hubNode.fx=cx;hubNode.fy=cy;}
+  simulation.force('center',d3.forceCenter(cx,cy).strength(0.015));
+  simulation.alpha(0.3).restart();
+});
+
+render();
+</script>
+</body>
+</html>

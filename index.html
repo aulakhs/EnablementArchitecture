@@ -186,6 +186,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
     <div class="phase-tab" onclick="showPhase('faq')"><span class="ph-num">5</span> FAQ</div>
     <div class="phase-tab" onclick="showPhase('pdf')"><span class="ph-num">6</span> PDF</div>
     <div class="phase-tab" onclick="showPhase('maintain')"><span class="ph-num">7</span> Maintain</div>
+    <div class="phase-tab" onclick="showPhase('video')">Video-to-Guide</div>
     <div class="phase-tab" onclick="showPhase('tools')">MCP Tools</div>
     <div class="phase-tab" onclick="showPhase('priority')">Build Order</div>
   </div>
@@ -204,6 +205,7 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
         <tr><td><strong>PDF Agent</strong></td><td><span class="sched-freq trigger">AE download</span></td><td>Phase 6</td><td>AE clicks download</td><td>4</td><td>2 (Link Scrubber, Diagram Harvester)</td></tr>
         <tr><td><strong>Maintenance Agent</strong></td><td><span class="sched-freq weekly">Weekly</span></td><td>Phase 7</td><td>Monday 9 AM</td><td>4</td><td>1 (Hub Integrity → Testing)</td></tr>
         <tr><td><strong>Notification Agent</strong></td><td><span class="sched-freq cont">Always-on</span></td><td>Cross-cut</td><td>Any agent completes</td><td>2</td><td>0</td></tr>
+        <tr><td><strong>Video-to-Guide Agent</strong></td><td><span class="sched-freq trigger">On-demand</span></td><td>End-to-end</td><td>CLI /video-to-guide</td><td>5</td><td>3 (Slack Miner, Drive Scanner, Diagram Harvester)</td></tr>
       </tbody>
     </table>
     <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 22px;margin-top:16px;font-size:12px;color:var(--ink2);line-height:2.2">
@@ -216,6 +218,9 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
       <strong>Fail</strong> &#8594; <span style="color:var(--red)">&#8634; back to Assembly</span><br>
       <div style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px">
         <strong>Post-deploy:</strong> FAQ Agent (daily) &middot; PDF Agent (on-demand) &middot; Maintenance Agent (weekly) &middot; Notifications (continuous)
+      </div>
+      <div style="margin-top:6px;border-top:1px solid var(--border);padding-top:6px">
+        <strong style="color:var(--purple)">End-to-end shortcut:</strong> <strong>Video</strong> &#8594; Video-to-Guide Agent &#8594; <em>Transcribe + Research + Build + Deploy + Wire</em> &#8594; <strong style="color:var(--green)">LIVE</strong> (one pause after research)
       </div>
     </div>
   </div>
@@ -288,6 +293,47 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
       <div class="ac-desc">System immune system. Checks health of every deployed topic weekly. Detects content decay, usage drop-off, integrity issues. Triggers re-research for stale topics.</div>
       <div class="ac-details"><div class="ac-detail"><strong>Usage analytics:</strong> Heroku logs — traffic vs. dead topics</div><div class="ac-detail"><strong>Content decay:</strong> 60 days no update + new Slack discussions → flag</div><div class="ac-detail"><strong>Hub integrity:</strong> shared skill with Testing Agent — sidebar links, counts</div><div class="ac-detail"><strong>Dependency monitoring:</strong> SF release calendar → flag affected topics</div><div class="ac-detail"><strong>Refresh trigger:</strong> push stale topics back into Intake Queue</div><div class="ac-detail"><strong>Weekly digest:</strong> healthy / needs refresh / new FAQs added</div></div>
     </div></div>
+  </div>
+
+  <!-- VIDEO-TO-GUIDE -->
+  <div class="phase-section" id="sec-video">
+    <div class="phase-header"><div class="phase-icon" style="background:linear-gradient(135deg,#9333ea,#c084fc)">&#127909;</div><div><h2>Video-to-Guide Agent</h2><p>End-to-end pipeline: video in, standalone Heroku field guide app out</p></div></div>
+    <div class="agents-grid"><div class="agent-card full">
+      <div class="ac-header"><div class="ac-icon" style="background:linear-gradient(135deg,#9333ea,#c084fc)">&#127909;</div><div class="ac-name">Video-to-Guide Agent</div><span class="ac-type agent">Agent (E2E)</span></div>
+      <div class="ac-desc">One-command agent that takes a video (Google Drive or local file) and produces a fully deployed, standalone Heroku field guide matching the shared design system. Combines transcription, research, assembly, deployment, and hub wiring into a single streamlined flow with one human pause point.</div>
+      <div class="ac-flows"><div class="ac-flow"><div class="ac-flow-label">Inputs</div><div class="ac-flow-items"><span class="ac-chip in">Google Drive video</span><span class="ac-chip in">Local video file</span><span class="ac-chip in">Topic name</span></div></div><div class="ac-flow"><div class="ac-flow-label">Outputs</div><div class="ac-flow-items"><span class="ac-chip out">Standalone Heroku app</span><span class="ac-chip out">Hub wiring</span><span class="ac-chip out">Design log</span></div></div></div>
+      <div class="ac-details">
+        <div class="ac-detail"><strong>Phase 1 — Transcribe:</strong> ffmpeg audio extraction → Whisper transcription → structured markdown</div>
+        <div class="ac-detail"><strong>Phase 2 — Research:</strong> Slack + Drive + web search using transcript as primary source</div>
+        <div class="ac-detail"><strong>PAUSE:</strong> User reviews research summary and proposed 5-tab structure</div>
+        <div class="ac-detail"><strong>Phase 3 — Build:</strong> Standalone app with shared design system (clouds, pill tabs, matching CSS vars)</div>
+        <div class="ac-detail"><strong>Phase 4 — Deploy:</strong> git init → heroku create → push → verify HTTP 200</div>
+        <div class="ac-detail"><strong>Phase 5 — Wire:</strong> Update Hub sidebar, topic card, What's New, counter</div>
+      </div>
+    </div></div>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 22px;margin-top:16px">
+      <h4 style="font-size:14px;font-weight:700;margin-bottom:10px">Design system enforcement (mandatory)</h4>
+      <div style="font-size:12.5px;color:var(--ink2);line-height:2">
+        <strong>CSS vars:</strong> --ink: #0A1F44 · --highlight: #FFB75D · --sage: #4a8a80 · --coral: #c4673a<br>
+        <strong>Chrome:</strong> Drifting clouds · Frosted-glass topbar · Pill tabs (999px radius) · Circular brand mark<br>
+        <strong>Fonts:</strong> Newsreader (headings) + Salesforce Sans (body) · 16px base · line-height 1.6<br>
+        <strong>Tabs:</strong> Pitch · How It Works · [Topic Tab] · In Deals · FAQ (consistent structure)<br>
+        <strong>Components:</strong> pitch-cards · stats strip · dd-grid · harness-box · specs table · details FAQ · slide-fig<br>
+        <strong>Reference file:</strong> AgentFabric/index.html (canonical)
+      </div>
+    </div>
+
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 22px;margin-top:16px">
+      <h4 style="font-size:14px;font-weight:700;margin-bottom:10px">Usage</h4>
+      <div style="font-size:12.5px;color:var(--ink2);line-height:2;font-family:'SF Mono',Menlo,monospace">
+        /video-to-guide https://drive.google.com/file/d/XXXX/view --topic "Topic Name"<br>
+        /video-to-guide /path/to/local/video.mp4 --topic "Topic Name"<br>
+        /video-to-guide {drive-id} --topic "Topic Name" --skip-transcribe
+      </div>
+    </div>
+
+    <div style="background:linear-gradient(135deg,#9333ea15,#c084fc10);border:1px solid #c084fc40;border-radius:10px;padding:14px 18px;font-size:12px;color:#5b21b6;margin-top:16px"><strong>Relationship to other agents:</strong> Video-to-Guide is a superset that orchestrates Transcription → Research → Assembly → Deploy internally. It reuses shared skills (Slack Miner, Drive Scanner, Diagram Harvester) and the Deploy Skill for the final push. One pause point after research — everything else is automated.</div>
   </div>
 
   <!-- MCP TOOLS -->
@@ -365,6 +411,7 @@ function showPhase(id) {
     else if (id==='faq'&&txt.includes('faq')) t.classList.add('active');
     else if (id==='pdf'&&txt.includes('pdf')) t.classList.add('active');
     else if (id==='maintain'&&txt.includes('maintain')) t.classList.add('active');
+    else if (id==='video'&&txt.includes('video')) t.classList.add('active');
     else if (id==='tools'&&txt.includes('mcp')) t.classList.add('active');
     else if (id==='priority'&&txt.includes('build')) t.classList.add('active');
   });
@@ -434,10 +481,10 @@ const hub = {
 
 // Shared skills — these connect to multiple agents
 const sharedSkills = [
-  { id:'ss-slack-mine', name:'Slack Miner', desc:'Canvases, threads, files, channels', color:'#0176D3', agents:['research','faq','maintain'] },
-  { id:'ss-drive-scan', name:'Drive Scanner', desc:'Docs, Slides, Sheets, BRDs', color:'#3d8fd9', agents:['research','assembly'] },
+  { id:'ss-slack-mine', name:'Slack Miner', desc:'Canvases, threads, files, channels', color:'#0176D3', agents:['research','faq','maintain','video'] },
+  { id:'ss-drive-scan', name:'Drive Scanner', desc:'Docs, Slides, Sheets, BRDs', color:'#3d8fd9', agents:['research','assembly','video'] },
   { id:'ss-sf-query', name:'SF Querier', desc:'SOQL for opps, products, refs', color:'#60a5fa', agents:['research','maintain'] },
-  { id:'ss-diagram', name:'Diagram Harvester', desc:'Slides → SVG/images for web & PDF', color:'#7c3aed', agents:['assembly','pdf'] },
+  { id:'ss-diagram', name:'Diagram Harvester', desc:'Slides → SVG/images for web & PDF', color:'#7c3aed', agents:['assembly','pdf','video'] },
   { id:'ss-link-check', name:'Link Checker', desc:'404s, redirects, timeouts', color:'#c4411a', agents:['testing','pdf'] },
   { id:'ss-internal-scan', name:'Internal URL Scanner', desc:'No internal links leak out', color:'#dc2626', agents:['testing','pdf'] },
   { id:'ss-hub-wire', name:'Hub Wiring', desc:'Sidebar + card + count update', color:'#0a4f99', agents:['deploy','maintain'] },
@@ -547,6 +594,19 @@ const agents = [
     ]
   },
   {
+    id:'video', name:'Video-to-Guide', phase:'End-to-end', trigger:'On-demand',
+    color:['#9333ea','#c084fc'], iconKey:'assembly', r:42,
+    desc:'One-command pipeline: video in → standalone Heroku field guide out. Transcribes, researches, builds, deploys, and wires into Hub. One human pause point after research.',
+    inputs:['Google Drive video','Local video file','Topic name'],
+    outputs:['Standalone Heroku app','Hub wiring','Design log'],
+    details:['Transcribe: ffmpeg + Whisper → structured markdown','Research: Slack + Drive + web (uses shared Slack Miner, Drive Scanner)','Human review pause: confirm tab structure','Build: standalone app matching shared design system','Deploy: heroku create + push + verify','Wire: Hub sidebar, card, count, changelog'],
+    exclusiveSkills:[
+      {id:'s-transcribe',name:'Video Transcriber',desc:'ffmpeg + Whisper → structured markdown',color:'#9333ea'},
+      {id:'s-design-sys',name:'Design System Builder',desc:'Enforces shared chrome, vars, components',color:'#a855f7'},
+      {id:'s-e2e-orchestrate',name:'E2E Orchestrator',desc:'Sequences all phases with one pause',color:'#c084fc'}
+    ]
+  },
+  {
     id:'notify', name:'Notification Agent', phase:'Cross-cut', trigger:'Always-on',
     color:['#FFB75D','#f59e0b'], iconKey:'notify', r:36,
     desc:'Cross-cutting concern embedded in each agent\'s final step. Posts to Slack on agent completion. Not a standalone agent.',
@@ -570,6 +630,9 @@ const agentFlows = [
   {source:'faq',target:'testing',label:'Updated content'},
   {source:'pdf',target:'testing',label:'Validate PDF'},
   {source:'maintain',target:'intake',label:'Refresh trigger'},
+  {source:'video',target:'research',label:'Transcript → research'},
+  {source:'video',target:'assembly',label:'Approved → build'},
+  {source:'video',target:'deploy',label:'Built → deploy'},
 ];
 
 // ===== D3 GRAPH =====
